@@ -1297,6 +1297,16 @@ def create_app(args):
                 # Data migration regardless of storage implementation
                 await r.check_and_migrate_data()
 
+            # Initialize MCP client manager (deferred from sync setup phase so we
+            # run inside a real asyncio event loop).
+            mcp_client_mgr = getattr(app.state, "mcp_client_mgr", None)
+            if mcp_client_mgr is not None:
+                try:
+                    await mcp_client_mgr.initialize()
+                    logger.info("MCP client manager initialized for tool discovery")
+                except Exception as exc:
+                    logger.warning("MCP client manager initialize() failed: %s", exc)
+
             ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
 
             yield
@@ -2180,29 +2190,23 @@ def create_app(args):
     mcp_manager, mcp_router = create_mcp_routes(args.working_dir, api_key)
     app.include_router(mcp_router)
 
-    # Initialize MCP client manager for tool discovery/invocation
+    # Stash MCP client manager; actual initialize() runs in lifespan startup.
+    # asyncio.get_event_loop() raises RuntimeError on Python 3.10+ when there is
+    # no running loop, so we defer to the FastAPI lifespan async context.
     try:
         from lightrag.mcp_client import McpClientManager
 
         mcp_client_mgr = McpClientManager(mcp_manager)
         set_mcp_client_manager(mcp_client_mgr)
-        # Attempt initial connection (non-blocking)
-        asyncio.get_event_loop().create_task(mcp_client_mgr.initialize())
-        logger.info("MCP client manager initialized for tool discovery")
+        app.state.mcp_client_mgr = mcp_client_mgr
+        logger.info("MCP client manager queued for lifespan startup")
     except Exception as e:
-        logger.warning("MCP client manager initialization skipped: %s", e)
+        logger.warning("MCP client manager setup skipped: %s", e)
 
     # Add user management routes (admin only)
     from lightrag.api.user_routes import create_user_routes
 
     app.include_router(create_user_routes(args.working_dir, api_key))
-
-    # Add Travel Planner routes
-    from lightrag.api.travel_routes import create_travel_routes
-
-    app.include_router(
-        create_travel_routes(args.working_dir, api_key)
-    )
 
     # Custom Swagger UI endpoint for offline support
     @app.get("/docs", include_in_schema=False)
