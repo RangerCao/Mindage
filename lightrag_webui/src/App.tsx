@@ -11,16 +11,16 @@ import SiteHeader from '@/features/SiteHeader'
 import { InvalidApiKeyError, RequireApiKeError } from '@/api/lightrag'
 import { ZapIcon } from 'lucide-react'
 import { useIsMobile } from '@/hooks/useMediaQuery'
-import { cn } from '@/lib/utils'
 
 import Sidebar from '@/components/Sidebar'
+import CommandPalette from '@/components/chat/CommandPalette'
+import { Sheet, SheetContent } from '@/components/ui/Sheet'
 import ChatView from '@/features/ChatView'
 import GraphViewer from '@/features/GraphViewer'
 import DocumentManager from '@/features/DocumentManager'
 import RetrievalView from '@/features/RetrievalView'
 import ApiSite from '@/features/ApiSite'
 import McpServersView from '@/features/McpServersView'
-import TravelPlannerView from '@/features/TravelPlannerView'
 import KnowledgeBaseManager from '@/features/KnowledgeBaseManager'
 import TreeViewer from '@/features/TreeViewer'
 import TreeMindExplore from '@/features/TreeMindExplore'
@@ -37,6 +37,7 @@ function App() {
   const isMountedRef = useRef(true)
   const isMobile = useIsMobile()
   const mobileSidebarOpen = useSettingsStore.use.mobileSidebarOpen()
+  const setMobileSidebarOpen = useSettingsStore.use.setMobileSidebarOpen()
 
   const handleApiKeyAlertOpenChange = useCallback((open: boolean) => {
     setApiKeyAlertOpen(open)
@@ -139,7 +140,6 @@ function App() {
       case 'retrieval': return <RetrievalView />
       case 'api': return <ApiSite />
       case 'mcp-servers': return <McpServersView />
-      case 'travel': return <TravelPlannerView />
       case 'users': return <UserManagementView />
       default: return <ChatView />
     }
@@ -168,17 +168,20 @@ function App() {
         ) : (
           <main className="flex h-screen w-screen overflow-hidden bg-gradient-to-br from-background via-background to-emerald-950/5 dark:to-emerald-500/5">
             {/* Left sidebar navigation */}
-            <div className={cn(
-              "z-10 border-r-2 border-gray-300 dark:border-gray-700",
-              isMobile && cn(
-                "border-r-0",
-                mobileSidebarOpen
-                  ? "fixed inset-y-0 left-0 z-40 w-0 overflow-visible"
-                  : "w-0 overflow-hidden"
-              )
-            )}>
-              <Sidebar />
-            </div>
+            {isMobile ? (
+              <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+                <SheetContent
+                  side="left"
+                  className="w-[280px] max-w-[85vw] gap-0 border-r border-border/40 bg-sidebar p-0"
+                >
+                  <Sidebar />
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <div className="z-10 border-r-2 border-gray-300 dark:border-gray-700">
+                <Sidebar />
+              </div>
+            )}
 
             {/* Right content area */}
             <div className="flex flex-1 flex-col overflow-hidden bg-background/90 backdrop-blur-sm">
@@ -193,6 +196,7 @@ function App() {
 
             {enableHealthCheck && <StatusIndicator />}
             <ApiKeyAlert open={apiKeyAlertOpen} onOpenChange={handleApiKeyAlertOpenChange} />
+            <CommandPalette />
           </main>
         )}
       </TabVisibilityProvider>

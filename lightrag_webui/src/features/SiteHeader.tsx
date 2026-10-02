@@ -1,17 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import Button from '@/components/ui/Button'
-import { SiteInfo, webuiPrefix } from '@/lib/constants'
 import AppSettings from '@/components/AppSettings'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/state'
-import { cn } from '@/lib/utils'
 import { useTranslation } from 'react-i18next'
 import { navigationService } from '@/services/navigation'
-import { ZapIcon, LogOutIcon, DatabaseIcon, SettingsIcon, SunIcon, MoonIcon, MenuIcon } from 'lucide-react'
+import { LogOutIcon, MenuIcon, DatabaseIcon } from 'lucide-react'
 import GithubIcon from '@/components/icons/GithubIcon'
 import LanguageToggle from '@/components/LanguageToggle'
 import ThemeToggle from '@/components/ThemeToggle'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip'
 import { listWorkspaces, setWorkspace, WorkspaceInfo } from '@/api/lightrag'
 import {
   Select,

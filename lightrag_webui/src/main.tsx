@@ -1,5 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { MotionConfig } from 'framer-motion'
 import './index.css'
 import AppRouter from './AppRouter'
 import './i18n.ts';
@@ -19,7 +20,11 @@ window.addEventListener('unhandledrejection', (event) => {
 try {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <AppRouter />
+      {/* Honor OS-level reduced-motion preference across every framer-motion
+          animation in the app (layout, whileHover, whileTap, AnimatePresence). */}
+      <MotionConfig reducedMotion="user">
+        <AppRouter />
+      </MotionConfig>
     </StrictMode>
   )
 } catch (error) {

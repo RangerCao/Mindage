@@ -6,7 +6,7 @@ import { Message, QueryRequest } from '@/api/lightrag'
 
 type Theme = 'dark' | 'light' | 'system'
 type Language = 'en' | 'zh' | 'fr' | 'ar' | 'zh_TW' | 'ru' | 'ja' | 'de' | 'uk' | 'ko' | 'vi'
-type Tab = 'chat' | 'documents' | 'knowledge-graph' | 'knowledge-base' | 'tree-view' | 'retrieval' | 'api' | 'mcp-servers' | 'travel'
+type Tab = 'chat' | 'documents' | 'knowledge-graph' | 'knowledge-base' | 'tree-view' | 'tree-mind-expand' | 'retrieval' | 'api' | 'mcp-servers' | 'users'
 
 interface SettingsState {
   // Document manager settings

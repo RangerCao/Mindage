@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '@/stores/settings'
 import { useAuthStore } from '@/stores/state'
@@ -10,22 +11,17 @@ import {
   ZapIcon,
   MessageSquareIcon,
   FolderOpenIcon,
-  DatabaseIcon,
   EyeIcon,
   Share2Icon,
-  GraduationCapIcon,
   SettingsIcon,
   LogOutIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   FileTextIcon,
   LibraryIcon,
   NetworkIcon,
   TreePineIcon,
   SearchIcon,
   CodeIcon,
-  GithubIcon,
-  RouteIcon,
   RadarIcon,
   UsersIcon,
   UserIcon,
@@ -42,7 +38,6 @@ export type NavPage =
   | 'retrieval'
   | 'api'
   | 'mcp-servers'
-  | 'travel'
   | 'users'
 
 interface NavItem {
@@ -89,7 +84,6 @@ const navGroups: NavGroup[] = [
       { id: 'retrieval', labelKey: 'sidebar.retrieval', icon: <SearchIcon className="size-4" /> },
       { id: 'api', labelKey: 'sidebar.api', icon: <CodeIcon className="size-4" /> },
       { id: 'mcp-servers', labelKey: 'sidebar.mcp', icon: <Share2Icon className="size-4" /> },
-      { id: 'travel', labelKey: 'sidebar.travel', icon: <RouteIcon className="size-4" /> },
       { id: 'users', labelKey: 'sidebar.users', icon: <UsersIcon className="size-4" /> },
     ],
   },
@@ -138,10 +132,14 @@ export default function Sidebar() {
 
   return (
     <aside
+      data-state={effectiveCollapsed ? 'collapsed' : 'expanded'}
       className={cn(
-        'bg-gradient-to-b from-sidebar-background via-sidebar-background to-sidebar-border/5 text-sidebar-foreground flex h-full flex-col transition-all duration-200',
-        effectiveCollapsed ? 'w-[52px]' : 'w-[220px]',
-        isMobile && !effectiveCollapsed && 'fixed inset-y-0 left-0 z-50 shadow-2xl'
+        'bg-gradient-to-b from-sidebar-background via-sidebar-background to-sidebar-border/5 text-sidebar-foreground flex h-full flex-col',
+        'transition-[width] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'grid grid-rows-[auto_1fr_auto]',
+        isMobile && !effectiveCollapsed && 'fixed inset-y-0 left-0 z-50 w-[280px] shadow-2xl',
+        !isMobile && effectiveCollapsed && 'w-[56px]',
+        !isMobile && !effectiveCollapsed && 'w-[240px]'
       )}
     >
       {/* Mobile overlay backdrop */}
@@ -197,35 +195,48 @@ export default function Sidebar() {
                   <>
                     {group.icon}
                     <span className="flex-1 text-left">{t(group.labelKey as any)}</span>
-                    {isExpanded ? (
+                    <motion.span
+                      animate={{ rotate: isExpanded ? 0 : -90 }}
+                      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                      className="inline-flex"
+                    >
                       <ChevronDownIcon className="size-3" />
-                    ) : (
-                      <ChevronRightIcon className="size-3" />
-                    )}
+                    </motion.span>
                   </>
                 )}
               </button>
 
               {/* Children */}
-              {!effectiveCollapsed && isExpanded && (
-                <div className="ml-1 mt-0.5 space-y-0.5 border-l-2 border-gray-400 dark:border-gray-600 pl-2">
-                  {group.children.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleNavigate(item.id)}
-                      className={cn(
-                        'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
-                        currentTab === item.id
-                          ? 'bg-emerald-400/20 text-emerald-600 font-medium dark:text-emerald-400'
-                          : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
-                      )}
-                    >
-                      {item.icon}
-                      <span>{t(item.labelKey as any)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {!effectiveCollapsed && isExpanded && (
+                  <motion.div
+                    key={`children-${group.labelKey}`}
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="ml-1 mt-0.5 space-y-0.5 border-l-2 border-gray-400 dark:border-gray-600 pl-2">
+                      {group.children.map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => handleNavigate(item.id)}
+                          className={cn(
+                            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
+                            currentTab === item.id
+                              ? 'bg-emerald-400/20 text-emerald-600 font-medium dark:text-emerald-400'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                          )}
+                        >
+                          {item.icon}
+                          <span>{t(item.labelKey as any)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           )
         })}
