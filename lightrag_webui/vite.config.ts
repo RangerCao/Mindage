@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-import path from 'path'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -7,7 +8,12 @@ import tailwindcss from '@tailwindcss/vite'
 // below and only takes effect during bundling — Node cannot resolve it when
 // loading vite.config.ts. Bun resolves tsconfig paths natively, masking the
 // issue, but Node does not.
-import { normalizeApiPrefix, normalizeWebuiPrefix } from './src/lib/pathPrefix'
+import {
+  normalizeApiPrefix,
+  normalizeWebuiPrefix
+} from './src/lib/pathPrefix.ts'
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
 /**
  * Inject `<script>window.__LIGHTRAG_CONFIG__ = ...</script>` into index.html.
@@ -54,7 +60,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react(), tailwindcss(), lightragRuntimeConfigPlugin(env)],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, './src')
+        '@': path.resolve(projectRoot, './src')
       },
       // Force all modules to use the same katex instance
       // This ensures mhchem extension registered in main.tsx is available to rehype-katex
@@ -67,7 +73,7 @@ export default defineConfig(({ mode }) => {
     // /webui → /webui/ redirect already handles this).
     base: './',
     build: {
-      outDir: path.resolve(__dirname, '../lightrag/api/webui'),
+      outDir: path.resolve(projectRoot, '../lightrag/api/webui'),
       emptyOutDir: true,
       chunkSizeWarningLimit: 3800,
       rollupOptions: {
