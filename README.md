@@ -33,14 +33,13 @@
   <h1>🇺🇸 English</h1>
 </div>
 
-**Mindage** is an interactive knowledge platform built on top of [LightRAG](https://github.com/HKUDS/LightRAG). It transforms traditional retrieval-augmented generation into an exploratory experience — navigate knowledge through mind maps, generate structured articles from topic trees, plan trips with multi-modal route comparison, and extend capabilities through MCP tool integration.
+**Mindage** is an interactive knowledge platform built on top of [LightRAG](https://github.com/HKUDS/LightRAG). It transforms traditional retrieval-augmented generation into an exploratory experience — navigate knowledge through mind maps, generate structured articles from topic trees, and extend capabilities through MCP tool integration.
 
 ### ✨ Key Features
 
 - **Mind Map Exploration** — Canvas-based interactive mind maps powered by LLM. Expand topics, generate per-node content, and produce full structured articles from a single topic tree.
 - **Knowledge Graph Visualization** — Interactive graph visualization of entity relationships extracted from your documents, powered by Sigma.js.
 - **Multi-Mode Retrieval** — Five query modes (local, global, hybrid, mix, naive) to balance precision and breadth for different query types.
-- **Travel Planner** — Multi-modal route comparison (walking, bus, metro, taxi, driving, cycling, railway) with Amap integration and LLM-powered recommendations.
 - **MCP Tool Integration** — Connect external tools via Model Context Protocol (stdio / SSE / streamable HTTP) and invoke them during conversations.
 - **PageIndex Tree Index** — Hierarchical document tree index for structured navigation of processed documents.
 - **Multi-User RBAC** — JWT-based authentication with admin / user / guest roles and self-service password management.
@@ -129,7 +128,7 @@ See `env.example` for the complete configuration reference.
 Mindage
 ├── lightrag/              # Core Python package
 │   ├── api/               # FastAPI server + REST endpoints
-│   │   ├── routers/       # Document, query, graph, explore, travel, MCP routes
+│   │   ├── routers/       # Document, query, graph, explore, MCP routes
 │   │   └── lightrag_server.py
 │   ├── kg/                # Storage backends (Neo4j, PostgreSQL, Milvus, etc.)
 │   ├── llm/               # LLM providers (OpenAI, Ollama, Azure, etc.)
@@ -140,7 +139,7 @@ Mindage
 ├── lightrag_webui/        # React 19 + TypeScript frontend
 │   └── src/
 │       ├── components/    # UI components
-│       ├── views/         # Page views (Chat, Knowledge, Graph, MindMap, Travel...)
+│       ├── views/         # Page views (Chat, Knowledge, Graph, MindMap...)
 │       └── i18n/          # 11 language translations
 └── docker-compose-full.yml
 ```
@@ -173,14 +172,13 @@ If you use Mindage in your research, please cite the original LightRAG paper:
   <h1>🇨🇳 中文</h1>
 </div>
 
-**Mindage** 是一个基于 [LightRAG](https://github.com/HKUDS/LightRAG) 构建的交互式知识平台。它将传统的检索增强生成转化为一种探索式体验——通过思维导图导航知识、从主题树生成结构化文章、使用多模态路线比较规划出行，并通过 MCP 工具集成扩展能力。
+**Mindage** 是一个基于 [LightRAG](https://github.com/HKUDS/LightRAG) 构建的交互式知识平台。它将传统的检索增强生成转化为一种探索式体验——通过思维导图导航知识、从主题树生成结构化文章，并通过 MCP 工具集成扩展能力。
 
 ### ✨ 核心功能
 
 - **思维导图探索** — 基于 Canvas 的交互式思维导图，由 LLM 驱动。展开主题、生成节点内容、从单一主题树生成完整的结构化文章。
 - **知识图谱可视化** — 基于 Sigma.js 的交互式图谱，展示从文档中提取的实体关系网络。
 - **多模式检索** — 五种查询模式（局部、全局、混合、融合、朴素），在不同查询场景下平衡精确度与广度。
-- **出行规划** — 多模态路线比较（步行、公交、地铁、打车、驾车、骑行、铁路），集成高德地图 API 与 LLM 智能推荐。
 - **MCP 工具集成** — 通过 Model Context Protocol（stdio / SSE / streamable HTTP）连接外部工具，在对话中直接调用。
 - **PageIndex 树形索引** — 层级化文档树索引，支持结构化浏览已处理文档。
 - **多用户权限管理** — 基于 JWT 的认证系统，支持管理员 / 普通用户 / 访客三种角色，支持自助修改密码。
