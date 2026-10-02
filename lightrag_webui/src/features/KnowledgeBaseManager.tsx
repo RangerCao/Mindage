@@ -19,7 +19,6 @@ import {
 export default function KnowledgeBaseManager() {
   const { t } = useTranslation()
   const [workspaces, setWorkspaces] = useState<WorkspaceInfo[]>([])
-  const [current, setCurrent] = useState('')
   const [loading, setLoading] = useState(false)
   const [newName, setNewName] = useState('')
   const [error, setError] = useState('')
@@ -29,7 +28,6 @@ export default function KnowledgeBaseManager() {
     try {
       const data = await listWorkspaces()
       setWorkspaces(data.workspaces)
-      setCurrent(data.current)
     } catch (_) {
       setError('Failed to load workspaces')
     }

@@ -64,7 +64,6 @@ const roleBadgeClass: Record<string, string> = {
 
 export default function UserManagementView() {
   const { t } = useTranslation()
-  const currentUsername = useAuthStore((s) => s.username)
   const currentUserRole = useAuthStore((s) => s.role)
   const isAdmin = currentUserRole === 'admin'
 
@@ -91,9 +90,10 @@ export default function UserManagementView() {
     try {
       setLoading(true)
       const data = await listUsers()
-      setUsers(data.users)
+      setUsers(Array.isArray(data?.users) ? data.users : [])
     } catch {
       toast.error(t('users.loadError'))
+      setUsers([])
     } finally {
       setLoading(false)
     }

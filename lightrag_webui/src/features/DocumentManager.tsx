@@ -12,7 +12,7 @@ import {
   TableRow
 } from '@/components/ui/Table'
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card'
-import EmptyCard from '@/components/ui/EmptyCard'
+import StateView, { type StateViewKind } from '@/components/ui/StateView'
 import Checkbox from '@/components/ui/Checkbox'
 import UploadDocumentsDialog from '@/components/documents/UploadDocumentsDialog'
 import ClearDocumentsDialog from '@/components/documents/ClearDocumentsDialog'
@@ -424,6 +424,7 @@ export default function DocumentManager() {
     statusCountsRef.current = statusCounts
   }, [statusCounts])
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   // Sort state
   const [sortField, setSortField] = useState<SortField>('updated_at')
@@ -855,6 +856,7 @@ export default function DocumentManager() {
       if (!isMountedRef.current) return;
 
       setIsRefreshing(true);
+      setFetchError(null);
 
       const { query, requestVersion } = refreshRequest
       const isStaleRequest = () => requestVersion !== latestRefreshRequestVersionRef.current
@@ -926,9 +928,14 @@ export default function DocumentManager() {
     } catch (err) {
       if (isMountedRef.current) {
         const errorClassification = classifyError(err);
+        const msg = errorMessage(err);
 
         if (errorClassification.shouldShowToast) {
-          toast.error(t('documentPanel.documentManager.errors.loadFailed', { error: errorMessage(err) }));
+          toast.error(t('documentPanel.documentManager.errors.loadFailed', { error: msg }));
+        }
+
+        if (errorClassification.type === 'server' || errorClassification.type === 'network' || errorClassification.type === 'timeout' || errorClassification.type === 'unknown') {
+          setFetchError(msg);
         }
 
         if (errorClassification.shouldRetry) {
@@ -1566,9 +1573,34 @@ export default function DocumentManager() {
           <CardContent className="min-h-0 flex-1 relative p-0" ref={cardContentRef}>
             {!docs && (
               <div className="absolute inset-0 min-h-0 p-0">
-                <EmptyCard
-                  title={t('documentPanel.documentManager.emptyTitle')}
-                  description={t('documentPanel.documentManager.emptyDescription')}
+                <StateView
+                  state={(() => {
+                    const k: StateViewKind = isRefreshing
+                      ? 'loading'
+                      : fetchError
+                        ? 'error'
+                        : 'empty'
+                    return k
+                  })()}
+                  title={fetchError
+                    ? t('documentPanel.documentManager.errors.loadFailedTitle', { defaultValue: '加载失败' })
+                    : t('documentPanel.documentManager.emptyTitle')}
+                  description={fetchError
+                    ? fetchError
+                    : t('documentPanel.documentManager.emptyDescription')}
+                  skeletonRows={6}
+                  action={fetchError ? (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleIntelligentRefresh(undefined, true)}
+                      aria-label={t('common.retry', { defaultValue: '重试' })}
+                    >
+                      <RefreshCwIcon className="mr-2 h-4 w-4" />
+                      {t('common.retry', { defaultValue: '重试' })}
+                    </Button>
+                  ) : null}
                 />
               </div>
             )}
@@ -1631,6 +1663,19 @@ export default function DocumentManager() {
                         </TableRow>
                       </TableHeader>
                       <TableBody className="text-sm overflow-auto">
+                        {filteredAndSortedDocs && filteredAndSortedDocs.length === 0 && (
+                          <TableRow>
+                            <TableCell colSpan={7} className="p-0">
+                              <StateView
+                                state="no-results"
+                                title={t('documentPanel.documentManager.noFilterResultsTitle', { defaultValue: '没有匹配的文档' })}
+                                description={t('documentPanel.documentManager.noFilterResultsDescription', { defaultValue: '当前筛选条件下没有文档，请尝试其他状态或调整搜索。' })}
+                                skeletonRows={3}
+                                className="!min-h-[24vh] !p-6"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )}
                         {filteredAndSortedDocs && filteredAndSortedDocs.map((doc) => (
                           <TableRow key={doc.id}>
                             <TableCell className="truncate font-mono overflow-visible max-w-[250px]">

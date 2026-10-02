@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSettingsStore } from '@/stores/settings'
 import { queryTextStream } from '@/api/lightrag'
-import Textarea from '@/components/ui/Textarea'
-import Button from '@/components/ui/Button'
 import { ChatMessage, MessageWithError } from '@/components/retrieval/ChatMessage'
-import { SendIcon, SquareIcon, EraserIcon, SparklesIcon } from 'lucide-react'
+import ChatComposer from '@/components/chat/ChatComposer'
+import JumpToLatest from '@/components/chat/JumpToLatest'
+import { SparklesIcon } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { errorMessage } from '@/lib/utils'
 
@@ -23,6 +24,8 @@ export default function ChatView() {
   const setRetrievalHistory = useSettingsStore.use.setRetrievalHistory()
   const querySettings = useSettingsStore.use.querySettings()
   const currentTab = useSettingsStore.use.currentTab()
+  const userPromptHistory = useSettingsStore.use.userPromptHistory()
+  const addUserPromptToHistory = useSettingsStore.use.addUserPromptToHistory()
 
   const [messages, setMessages] = useState<MessageWithError[]>(() =>
     (retrievalHistory || []).map((msg, i) => ({
@@ -36,16 +39,50 @@ export default function ChatView() {
   const [loading, setLoading] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [pinned, setPinned] = useState(true)
 
-  // Auto-scroll
+  // Track scroll position to decide whether to auto-scroll / show JumpToLatest
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    const el = scrollRef.current
+    if (!el) return
+    const onScroll = () => {
+      const dist = el.scrollHeight - el.scrollTop - el.clientHeight
+      setPinned(dist < 80)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
 
-  const send = useCallback(async () => {
-    const text = input.trim()
+  // Auto-scroll only while pinned
+  useEffect(() => {
+    if (!pinned) return
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, pinned])
+
+  // rAF-coalesced stream buffer — caps setState at ~60Hz
+  const flushRef = useRef<{ buffer: string; raf: number | null }>({ buffer: '', raf: null })
+  const scheduleFlush = useCallback((apply: (chunk: string) => void) => {
+    const state = flushRef.current
+    return (chunk: string) => {
+      state.buffer += chunk
+      if (state.raf == null) {
+        state.raf = requestAnimationFrame(() => {
+          const b = state.buffer
+          state.buffer = ''
+          state.raf = null
+          if (b) apply(b)
+        })
+      }
+    }
+  }, [])
+
+  const send = useCallback(async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim()
     if (!text || loading) return
     setInput('')
+    addUserPromptToHistory(text)
+    setPinned(true)
 
     const userMsg: MessageWithError = {
       id: generateId(),
@@ -67,16 +104,14 @@ export default function ChatView() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    const updateAssistant = (chunk: string) => {
+    const applyChunk = scheduleFlush((chunk: string) => {
       setMessages((prev) => {
         const next = [...prev]
         const last = next[next.length - 1]
-        if (last && last.role === 'assistant') {
-          last.content += chunk
-        }
+        if (last && last.role === 'assistant') last.content += chunk
         return next
       })
-    }
+    })
 
     const queryParams = {
       ...querySettings,
@@ -85,31 +120,36 @@ export default function ChatView() {
       response_type: 'Multiple Paragraphs',
     }
 
+    let errorBuf = ''
     try {
-      let errorMsg = ''
-      await queryTextStream(queryParams, updateAssistant, (error: string) => {
-        errorMsg += error
-      }, controller.signal)
-      if (errorMsg) {
+      await queryTextStream(queryParams, applyChunk, (e: string) => { errorBuf += e }, controller.signal)
+      if (errorBuf) {
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1]
           if (last && last.role === 'assistant') {
-            last.content = (last.content || '') + '\n' + errorMsg
+            last.content = (last.content || '') + '\n' + errorBuf
             last.isError = true
           }
           return next
         })
       }
     } catch (err: any) {
-      if (err?.name !== 'AbortError') {
+      if (err?.name === 'AbortError') {
+        setMessages((prev) => {
+          const next = [...prev]
+          const last = next[next.length - 1]
+          if (last && last.role === 'assistant') last.isAborted = true
+          return next
+        })
+      } else {
         toast.error(errorMessage(err))
       }
     } finally {
       setLoading(false)
       abortRef.current = null
     }
-  }, [input, loading, querySettings])
+  }, [input, loading, querySettings, scheduleFlush, addUserPromptToHistory])
 
   const stop = useCallback(() => {
     abortRef.current?.abort()
@@ -121,15 +161,21 @@ export default function ChatView() {
     setRetrievalHistory([])
   }, [setRetrievalHistory])
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        send()
+  const regenerate = useCallback(() => {
+    // Drop trailing assistant messages then resend the last user prompt
+    setMessages((prev) => {
+      const next = [...prev]
+      while (next.length && next[next.length - 1].role === 'assistant') next.pop()
+      // schedule resend
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].role === 'user') {
+          setTimeout(() => send(next[i].content), 0)
+          break
+        }
       }
-    },
-    [send]
-  )
+      return next
+    })
+  }, [send])
 
   // Chat page is only active when on the "chat" tab
   if (currentTab !== 'chat') return null
@@ -137,10 +183,22 @@ export default function ChatView() {
   return (
     <div className="flex h-full flex-col">
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-thin bg-[image:radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500/5 dark:from-emerald-400/5 via-transparent to-transparent">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label={t('chat.messagesRegion', 'Conversation messages')}
+        className="relative flex-1 overflow-y-auto px-4 py-4 scrollbar-thin bg-[image:radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500/5 dark:from-emerald-400/5 via-transparent to-transparent"
+      >
         {messages.length === 0 && !loading && (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="rounded-xl border border-emerald-200/40 dark:border-emerald-700/30 bg-card/70 p-8 shadow-xl shadow-emerald-950/5 dark:shadow-emerald-500/10 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+              className="rounded-2xl border border-emerald-200/40 dark:border-emerald-700/30 bg-card/70 p-8 shadow-xl shadow-emerald-950/5 dark:shadow-emerald-500/10 backdrop-blur-md"
+            >
               <SparklesIcon className="mx-auto mb-4 size-12 text-emerald-400" />
               <h2 className="mb-2 text-xl font-semibold">{t('chat.welcome', 'Hello! How can I help you?')}</h2>
               <p className="mb-6 max-w-md text-sm text-muted-foreground">
@@ -151,56 +209,65 @@ export default function ChatView() {
                   <button
                     key={p}
                     onClick={() => setInput(p)}
-                    className="rounded-full border border-border/40 bg-secondary/30 px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:bg-secondary hover:text-accent-foreground hover:shadow-md"
+                    className="hover-lift rounded-full border border-border/40 bg-secondary/30 px-3 py-1.5 text-xs text-muted-foreground shadow-sm hover:text-accent-foreground"
                   >
                     {p}
                   </button>
                 ))}
-            </div>
+              </div>
+            </motion.div>
           </div>
-        </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`${msg.role === 'user' ? 'ml-auto max-w-[80%]' : 'mr-auto w-[95%]'} mb-3`}
-          >
-            <ChatMessage message={msg} />
-          </div>
-        ))}
+        <AnimatePresence initial={false}>
+          {messages.map((msg, idx) => {
+            const isLast = idx === messages.length - 1
+            const isStreaming = loading && isLast && msg.role === 'assistant'
+            return (
+              <motion.div
+                key={msg.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className={`group ${msg.role === 'user' ? 'ml-auto max-w-[80%]' : 'mr-auto w-[95%]'} mb-3`}
+              >
+                <ChatMessage
+                  message={msg}
+                  isStreaming={isStreaming}
+                  onRegenerate={msg.role === 'assistant' ? regenerate : undefined}
+                />
+              </motion.div>
+            )
+          })}
+        </AnimatePresence>
+
         <div ref={endRef} />
+        <JumpToLatest
+          visible={!pinned && messages.length > 0}
+          label={t('chat.jumpToLatest', 'Jump to latest ↓')}
+          ariaLabel={t('chat.jumpToLatestAria', 'Jump to latest message')}
+          onClick={() => {
+            endRef.current?.scrollIntoView({ behavior: 'smooth' })
+            setPinned(true)
+          }}
+        />
       </div>
 
       {/* Input area */}
       <div className="border-t border-border/20 bg-card/40 px-4 py-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur-sm">
-        <div className="mx-auto flex max-w-3xl items-end gap-2">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={t('chat.inputPlaceholder', 'Ask something...')}
-            className="min-h-[44px] max-h-[120px] resize-none"
-            rows={1}
-            disabled={loading}
-          />
-          <div className="flex gap-1">
-            {loading ? (
-              <Button onClick={stop} variant="destructive" size="icon" title={t('chat.stop', 'Stop')}>
-                <SquareIcon className="size-4" />
-              </Button>
-            ) : (
-              <Button onClick={send} size="icon" disabled={!input.trim()} title={t('chat.send', 'Send')}>
-                <SendIcon className="size-4" />
-              </Button>
-            )}
-            {messages.length > 0 && (
-              <Button onClick={clear} variant="ghost" size="icon" title={t('chat.clear', 'Clear')}>
-                <EraserIcon className="size-4" />
-              </Button>
-            )}
-          </div>
-        </div>
+        <ChatComposer
+          value={input}
+          onChange={setInput}
+          onSubmit={() => send()}
+          onStop={stop}
+          onClear={messages.length > 0 ? clear : undefined}
+          isStreaming={loading}
+          history={userPromptHistory}
+          onPickHistory={(v) => setInput(v)}
+          placeholder={t('chat.inputPlaceholder', 'Ask something...')}
+        />
       </div>
     </div>
   )

@@ -16,6 +16,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneLight, oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism'
 
 import { LoaderIcon, ChevronDownIcon } from 'lucide-react'
+import MessageToolbar from '@/components/chat/MessageToolbar'
 import { useTranslation } from 'react-i18next'
 
 // KaTeX configuration options interface
@@ -48,10 +49,14 @@ export type MessageWithError = Message & {
 // Restore original component definition and export
 export const ChatMessage = ({
   message,
-  isTabActive = true
+  isTabActive = true,
+  isStreaming = false,
+  onRegenerate,
 }: {
   message: MessageWithError
   isTabActive?: boolean
+  isStreaming?: boolean
+  onRegenerate?: () => void
 }) => {
   const { t } = useTranslation()
   const { theme } = useTheme()
@@ -237,7 +242,7 @@ export const ChatMessage = ({
             message.role === 'user'
               ? '[&_.footnotes]:border-primary-foreground/30 [&_a[href^="#fn"]]:text-primary-foreground [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary-foreground [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
               : '[&_.footnotes]:border-border [&_a[href^="#fn"]]:text-primary [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
-          }`}>
+          } ${isStreaming && message.role === 'assistant' ? 'streaming-caret' : ''}`}>
             <ReactMarkdown
               remarkPlugins={[remarkGfm, remarkFootnotes, remarkMath]}
               rehypePlugins={[
@@ -274,6 +279,10 @@ export const ChatMessage = ({
         <div className="mt-1 text-xs italic text-muted-foreground">
           {t('retrievePanel.retrieval.userTerminated')}
         </div>
+      )}
+      {/* Hover-revealed toolbar for assistant messages (hidden while streaming) */}
+      {message.role === 'assistant' && !isStreaming && (
+        <MessageToolbar content={finalDisplayContent} onRegenerate={onRegenerate} />
       )}
       {/* Loading indicator - only show in active tab */}
       {isTabActive && !message.isAborted && (() => {

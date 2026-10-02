@@ -155,7 +155,7 @@ export default function TreeViewer() {
       {/* Main: canvas tree view */}
       <div className="flex flex-1 flex-col min-w-0">
         {treeData ? (
-          <TreeCanvas tree={treeData} docName={treeData.doc_name} />
+          <TreeCanvas tree={treeData} />
         ) : loading ? (
           <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
             {t('treeViewer.loading', 'Loading...')}

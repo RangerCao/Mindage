@@ -1,8 +1,17 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { motion, AnimatePresence } from 'framer-motion'
 import { SendIcon, LightbulbIcon, Loader2Icon, ZoomInIcon, ZoomOutIcon, DatabaseIcon, FileTextIcon, XIcon, ChevronDownIcon, UploadIcon } from 'lucide-react'
 import { exploreInitTree, exploreExpandNode, exploreGenerateContent, exploreGenerateFullArticle, exploreListWorkspaces, exploreSaveTree, exploreListTrees, exploreLoadTree, exploreDeleteTree, exploreImportMarkdown } from '@/api/lightrag'
+import { toast } from 'sonner'
 import type { TreeNode, TreeStructure, WorkspaceItem, SavedTreeMeta, AncestorNode, SiblingNode } from '@/api/lightrag'
+
+const SUGGESTED_TOPICS = [
+  '人工智能发展史',
+  '量子计算基础',
+  'Web 应用架构',
+  '气候变化',
+]
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -207,8 +216,9 @@ function drawTree(
   expandingId: string | null,
   draggedNodeId: string | null = null,
 ) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx || !root) return
+  const ctxOrNull = canvas.getContext('2d')
+  if (!ctxOrNull || !root) return
+  const ctx: CanvasRenderingContext2D = ctxOrNull
 
   const dpr = window.devicePixelRatio || 1
   const cw = container.clientWidth
@@ -308,8 +318,6 @@ export default function TreeMindExplore() {
 
   // ── Per-node keywords state ──────────────────────────────────────
   const [nodeKeywords, setNodeKeywords] = useState<Record<string, string>>({})
-  const [editingKeywordNode, setEditingKeywordNode] = useState<string | null>(null)
-  const [editKeywordValue, setEditKeywordValue] = useState('')
 
   // ── Article generation state ──────────────────────────────────────
   const [headingStyle, setHeadingStyle] = useState('markdown')
@@ -334,7 +342,7 @@ export default function TreeMindExplore() {
     const file = e.target.files?.[0]
     if (!file) return
     if (!file.name.endsWith('.md') && file.type !== 'text/markdown' && file.type !== 'text/plain') {
-      alert('请选择 .md 格式的 Markdown 文件')
+      toast.error('请选择 .md 格式的 Markdown 文件')
       return
     }
     setImportFileName(file.name)
@@ -465,6 +473,7 @@ export default function TreeMindExplore() {
       setTreeData(data)
     } catch (err) {
       console.error('Failed to generate tree:', err)
+      toast.error(t('treeMindExplore.generateError', '生成失败，请重试或换个主题'))
     } finally {
       setLoading(false)
     }
@@ -696,6 +705,7 @@ export default function TreeMindExplore() {
   const handleAddCustomChild = () => {
     const menu = contextMenu
     if (!menu || !treeData || !customChildInput.trim()) return
+    const targetNodeId = menu.node.nodeId
     const titles = customChildInput.split('\n').map((s) => s.trim()).filter(Boolean)
 
     setTreeData((prev) => {
@@ -712,7 +722,7 @@ export default function TreeMindExplore() {
 
       function findAndAdd(structure: TreeNode[], idx: { v: number }): boolean {
         for (const n of structure) {
-          if (n.node_id === menu.node.nodeId) {
+          if (n.node_id === targetNodeId) {
             for (const t of titles) {
               idx.v++
               n.nodes = [...(n.nodes || []), {
@@ -741,6 +751,7 @@ export default function TreeMindExplore() {
   const handleDeleteNode = () => {
     const menu = contextMenu
     if (!menu || !treeData) return
+    const targetNodeId = menu.node.nodeId
 
     setTreeData((prev) => {
       if (!prev) return prev
@@ -748,7 +759,7 @@ export default function TreeMindExplore() {
 
       function removeFrom(structure: TreeNode[]): boolean {
         for (let i = structure.length - 1; i >= 0; i--) {
-          if (structure[i].node_id === menu.node.nodeId) {
+          if (structure[i].node_id === targetNodeId) {
             structure.splice(i, 1)
             return true
           }
@@ -1090,14 +1101,63 @@ export default function TreeMindExplore() {
             className="h-full w-full"
           />
         ) : (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <LightbulbIcon className="mb-3 size-10 text-muted-foreground/30" />
-            <p className="text-sm text-muted-foreground/60 max-w-md">
-              {loading
-                ? t('treeMindExplore.generating', '正在生成思维导图...')
-                : t('treeMindExplore.emptyHint', '在上方输入一个主题，点击「生成」开始探索')}
-            </p>
-          </div>
+          <AnimatePresence mode="wait">
+            {loading ? (
+              <motion.div
+                key="loading"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                className="flex h-full flex-col items-center justify-center text-center"
+              >
+                <Loader2Icon className="mb-3 size-10 animate-spin text-emerald-500/70" />
+                <p className="text-sm text-muted-foreground/70 max-w-md">
+                  {t('treeMindExplore.generating', '正在生成思维导图…')}
+                </p>
+                <div className="mt-4 flex items-center gap-1.5 text-[10px] text-muted-foreground/40">
+                  <span className="size-1.5 rounded-full bg-emerald-500/50 animate-pulse" />
+                  <span className="size-1.5 rounded-full bg-emerald-500/50 animate-pulse" style={{ animationDelay: '150ms' }} />
+                  <span className="size-1.5 rounded-full bg-emerald-500/50 animate-pulse" style={{ animationDelay: '300ms' }} />
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+                className="flex h-full flex-col items-center justify-center text-center px-4"
+              >
+                <div className="rounded-2xl border border-emerald-200/40 dark:border-emerald-700/30 bg-card/70 p-8 shadow-xl shadow-emerald-950/5 dark:shadow-emerald-500/10 backdrop-blur-md">
+                  <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-emerald-100/60 dark:bg-emerald-900/30">
+                    <LightbulbIcon className="size-7 text-emerald-500" />
+                  </div>
+                  <h2 className="mb-2 text-base font-semibold text-foreground/80">
+                    {t('treeMindExplore.emptyTitle', '从一个问题开始')}
+                  </h2>
+                  <p className="mb-5 max-w-sm text-sm text-muted-foreground/70">
+                    {t('treeMindExplore.emptyHint', '在上方输入一个主题，点击「生成」开始探索')}
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {SUGGESTED_TOPICS.map((s) => (
+                      <motion.button
+                        key={s}
+                        whileHover={{ y: -1 }}
+                        whileTap={{ scale: 0.96 }}
+                        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+                        onClick={() => setTopic(s)}
+                        className="rounded-full border border-border/40 bg-secondary/30 px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-colors hover:border-emerald-500/40 hover:bg-emerald-50/60 hover:text-emerald-700 dark:hover:bg-emerald-950/30 dark:hover:text-emerald-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      >
+                        {s}
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
 
         {/* Zoom controls */}
@@ -1235,11 +1295,28 @@ export default function TreeMindExplore() {
         )}
 
         {/* Generated article display modal — editable per-section */}
+        <AnimatePresence>
         {generatedArticle && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border/40 bg-card shadow-2xl">
+          <motion.div
+            key="article-modal"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="article-modal-title"
+              className="mx-4 flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg border border-border/40 bg-card shadow-2xl focus:outline-none"
+            >
               <div className="flex items-center justify-between border-b border-border/30 px-4 py-3">
-                <h3 className="text-sm font-semibold text-foreground/80">
+                <h3 id="article-modal-title" className="text-sm font-semibold text-foreground/80">
                   {t('treeMindExplore.generatedArticle', '生成的文章')}
                   <span className="ml-2 text-[10px] font-normal text-muted-foreground/60">（点击文本框可直接编辑）</span>
                 </h3>
@@ -1331,7 +1408,7 @@ export default function TreeMindExplore() {
                           rows={Math.max(2, Math.min(12, sec.content.filter((l) => l.trim()).length + 1))}
                           className="w-full resize-y border-0 bg-transparent px-3 py-2 text-xs leading-relaxed text-foreground/80 outline-none placeholder:text-muted-foreground/30"
                           placeholder="在此编辑此节内容..."
-                          onChange={(e) => {
+                          onChange={() => {
                             // Update generatedArticle by reconstructing from sections
                             // We use a data attribute approach for simplicity
                             const allSections = document.querySelectorAll('[data-section-idx]')
@@ -1354,19 +1431,39 @@ export default function TreeMindExplore() {
                   })
                 })()}
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Save panel overlay */}
+        <AnimatePresence>
         {showSavePanel && (
-          <div className="absolute inset-0 z-40 flex items-start justify-end bg-black/10" onClick={(e) => { if (e.target === e.currentTarget) setShowSavePanel(false) }}>
-            <div ref={savePanelRef} className="mr-4 mt-4 w-80 rounded-lg border border-border/40 bg-card shadow-2xl">
+          <motion.div
+            key="save-panel"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-40 flex items-start justify-end bg-black/10"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowSavePanel(false) }}
+          >
+            <motion.div
+              ref={savePanelRef}
+              initial={{ opacity: 0, x: 16, scale: 0.96 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 16, scale: 0.96 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="save-panel-title"
+              className="mr-4 mt-4 w-80 rounded-lg border border-border/40 bg-card shadow-2xl focus:outline-none"
+            >
               <div className="flex items-center justify-between border-b border-border/30 px-4 py-2.5">
-                <h3 className="text-xs font-semibold text-foreground/80">
+                <h3 id="save-panel-title" className="text-xs font-semibold text-foreground/80">
                   {t('treeMindExplore.savedTrees', '已保存的思维导图')}
                 </h3>
-                <button onClick={() => setShowSavePanel(false)} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => setShowSavePanel(false)} className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                   <XIcon className="size-3.5" />
                 </button>
               </div>
@@ -1384,7 +1481,7 @@ export default function TreeMindExplore() {
                       >
                         <button
                           onClick={() => handleLoadTree(tree.tree_id)}
-                          className="flex-1 text-left"
+                          className="flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                         >
                           <p className="truncate text-xs font-medium text-foreground/80">{tree.doc_name || 'Untitled'}</p>
                           <p className="text-[10px] text-muted-foreground/50">
@@ -1393,7 +1490,7 @@ export default function TreeMindExplore() {
                         </button>
                         <button
                           onClick={() => handleDeleteTree(tree.tree_id)}
-                          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30"
+                          className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground/40 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                           title={t('treeMindExplore.deleteTree', '删除')}
                         >
                           <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
@@ -1403,14 +1500,41 @@ export default function TreeMindExplore() {
                   </div>
                 )}
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Import markdown dialog */}
+        <AnimatePresence>
         {showImportDialog && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-            <div className="mx-4 w-full max-w-lg rounded-lg border border-border/40 bg-card shadow-2xl">
+          <motion.div
+            key="import-dialog"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowImportDialog(false); setImportMarkdownText(''); setImportFileName('') } }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 8 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="import-md-title"
+              className="mx-4 w-full max-w-lg rounded-lg border border-border/40 bg-card shadow-2xl focus:outline-none"
+            >
+              <div className="flex items-center justify-between border-b border-border/30 px-4 py-3">
+                <h3 id="import-md-title" className="text-sm font-semibold text-foreground/80">
+                  {t('treeMindExplore.importTitle', '导入 Markdown 文档')}
+                </h3>
+                <button onClick={() => { setShowImportDialog(false); setImportMarkdownText(''); setImportFileName('') }} className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+                  <XIcon className="size-3.5" />
+                </button>
+              </div>
               <div className="flex items-center justify-between border-b border-border/30 px-4 py-3">
                 <h3 className="text-sm font-semibold text-foreground/80">
                   {t('treeMindExplore.importTitle', '导入 Markdown 文档')}
@@ -1430,7 +1554,7 @@ export default function TreeMindExplore() {
                     const file = e.dataTransfer.files[0]
                     if (!file) return
                     if (!file.name.endsWith('.md') && file.type !== 'text/markdown' && file.type !== 'text/plain') {
-                      alert('请选择 .md 格式的 Markdown 文件')
+                      toast.error('请选择 .md 格式的 Markdown 文件')
                       return
                     }
                     setImportFileName(file.name)
@@ -1467,37 +1591,46 @@ export default function TreeMindExplore() {
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => { setShowImportDialog(false); setImportMarkdownText(''); setImportFileName('') }}
-                    className="rounded-md border border-border/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50"
+                    className="rounded-md border border-border/40 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {t('treeMindExplore.cancel', '取消')}
                   </button>
                   <button
                     onClick={handleImportMarkdown}
                     disabled={importing || !importMarkdownText.trim()}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {importing ? <Loader2Icon className="size-3.5 animate-spin" /> : null}
                     {t('treeMindExplore.importBtn', '导入')}
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
 
 
         {/* Context menu (right-click) */}
+        <AnimatePresence>
         {contextMenu && (
-          <div
+          <motion.div
+            key="ctx-menu"
             ref={contextMenuRef}
-            className="absolute z-50 w-64 rounded-lg border border-border/40 bg-card shadow-xl backdrop-blur-md"
+            role="menu"
+            aria-label={t('treeMindExplore.nodeMenu', '节点操作菜单')}
+            initial={{ opacity: 0, scale: 0.94, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: -4 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute z-50 w-64 rounded-lg border border-border/40 bg-card shadow-xl backdrop-blur-md focus:outline-none"
             style={{ left: contextMenu.x - 20, top: contextMenu.y - 10 }}
           >
             <div className="border-b border-border/30 px-3 py-2">
               <div className="flex items-center justify-between">
                 <FileTextIcon className="size-3.5 text-emerald-500" />
-                <button onClick={() => { setContextMenu(null); setContextKeywords('') }} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => { setContextMenu(null); setContextKeywords('') }} className="text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
                   <XIcon className="size-3" />
                 </button>
               </div>
@@ -1558,15 +1691,16 @@ export default function TreeMindExplore() {
               <div className="border-t border-border/30 pt-2">
                 <button
                   onClick={handleDeleteNode}
-                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-red-300/50 px-3 py-1.5 text-[11px] font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+                  className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-red-300/50 px-3 py-1.5 text-[11px] font-medium text-red-600 dark:text-red-400 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                 >
                   <svg className="size-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                   {t('treeMindExplore.deleteNode', '删除节点')}
                 </button>
               </div>
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Hint */}
         {treeData && (

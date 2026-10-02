@@ -269,7 +269,6 @@ function draw(
   canvas: HTMLCanvasElement,
   container: HTMLElement,
   layoutRoots: LayoutNode[],
-  docName: string | undefined,
   px: number,
   py: number,
   zm: number,
@@ -353,10 +352,8 @@ function NodeDetail({
 
 export default function TreeCanvas({
   tree,
-  docName,
 }: {
   tree: TreeStructure
-  docName?: string
 }) {
   const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -392,11 +389,11 @@ export default function TreeCanvas({
     if (!canvas || !container) return
     const skipShadow = draggingRef.current
     draw(
-      canvas, container, layoutRef.current, docName,
+      canvas, container, layoutRef.current,
       panRef.current.x, panRef.current.y, zoomRef.current,
       skipShadow, selectedNode?.id ?? null,
     )
-  }, [docName, selectedNode, renderTick])
+  }, [selectedNode, renderTick])
 
   useEffect(() => { drawNow() }, [drawNow])
 

@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react'
 import { QueryMode, QueryRequest } from '@/api/lightrag'
 // Removed unused import for Text component
 import Checkbox from '@/components/ui/Checkbox'
-import Input from '@/components/ui/Input'
+import SliderField from '@/components/ui/SliderField'
 import UserPromptInputWithHistory from '@/components/ui/UserPromptInputWithHistory'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/Card'
 import {
@@ -66,6 +66,15 @@ export default function QuerySettings() {
     max_relation_tokens: 8000,
     max_total_tokens: 30000
   }), [])
+
+  // Visual ranges for slider fields. Defaults stay aligned with defaultValues.
+  const numberRanges = useMemo(() => ({
+    top_k: { min: 1, max: 200, step: 1 },
+    chunk_top_k: { min: 1, max: 100, step: 1 },
+    max_entity_tokens: { min: 1000, max: 30000, step: 500 },
+    max_relation_tokens: { min: 1000, max: 30000, step: 500 },
+    max_total_tokens: { min: 5000, max: 80000, step: 1000 }
+  } as const), [])
 
   const handleReset = useCallback((key: keyof typeof defaultValues) => {
     handleChange(key, defaultValues[key])
@@ -152,204 +161,74 @@ export default function QuerySettings() {
             </>
 
             {/* Top K */}
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="top_k" className="ml-1 cursor-help">
-                      {t('retrievePanel.querySettings.topK')}
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>{t('retrievePanel.querySettings.topKTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Input
-                  id="top_k"
-                  type="number"
-                  value={querySettings.top_k ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    handleChange('top_k', value === '' ? '' : parseInt(value) || 0)
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value
-                    if (value === '' || isNaN(parseInt(value))) {
-                      handleChange('top_k', 40)
-                    }
-                  }}
-                  min={1}
-                  placeholder={t('retrievePanel.querySettings.topKPlaceholder')}
-                  className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
-                />
-                <ResetButton
-                  onClick={() => handleReset('top_k')}
-                  title="Reset to default"
-                />
-              </div>
-            </>
+            <SliderField
+              id="top_k"
+              label={t('retrievePanel.querySettings.topK')}
+              tooltip={t('retrievePanel.querySettings.topKTooltip')}
+              value={querySettings.top_k ?? ''}
+              onChange={(v) => handleChange('top_k', v)}
+              min={numberRanges.top_k.min}
+              max={numberRanges.top_k.max}
+              step={numberRanges.top_k.step}
+              defaultValue={defaultValues.top_k}
+              resetTitle="Reset to default"
+            />
 
             {/* Chunk Top K */}
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="chunk_top_k" className="ml-1 cursor-help">
-                      {t('retrievePanel.querySettings.chunkTopK')}
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>{t('retrievePanel.querySettings.chunkTopKTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Input
-                  id="chunk_top_k"
-                  type="number"
-                  value={querySettings.chunk_top_k ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    handleChange('chunk_top_k', value === '' ? '' : parseInt(value) || 0)
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value
-                    if (value === '' || isNaN(parseInt(value))) {
-                      handleChange('chunk_top_k', 20)
-                    }
-                  }}
-                  min={1}
-                  placeholder={t('retrievePanel.querySettings.chunkTopKPlaceholder')}
-                  className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
-                />
-                <ResetButton
-                  onClick={() => handleReset('chunk_top_k')}
-                  title="Reset to default"
-                />
-              </div>
-            </>
+            <SliderField
+              id="chunk_top_k"
+              label={t('retrievePanel.querySettings.chunkTopK')}
+              tooltip={t('retrievePanel.querySettings.chunkTopKTooltip')}
+              value={querySettings.chunk_top_k ?? ''}
+              onChange={(v) => handleChange('chunk_top_k', v)}
+              min={numberRanges.chunk_top_k.min}
+              max={numberRanges.chunk_top_k.max}
+              step={numberRanges.chunk_top_k.step}
+              defaultValue={defaultValues.chunk_top_k}
+              resetTitle="Reset to default"
+            />
 
             {/* Max Entity Tokens */}
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="max_entity_tokens" className="ml-1 cursor-help">
-                      {t('retrievePanel.querySettings.maxEntityTokens')}
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>{t('retrievePanel.querySettings.maxEntityTokensTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Input
-                  id="max_entity_tokens"
-                  type="number"
-                  value={querySettings.max_entity_tokens ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    handleChange('max_entity_tokens', value === '' ? '' : parseInt(value) || 0)
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value
-                    if (value === '' || isNaN(parseInt(value))) {
-                      handleChange('max_entity_tokens', 6000)
-                    }
-                  }}
-                  min={1}
-                  placeholder={t('retrievePanel.querySettings.maxEntityTokensPlaceholder')}
-                  className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
-                />
-                <ResetButton
-                  onClick={() => handleReset('max_entity_tokens')}
-                  title="Reset to default"
-                />
-              </div>
-            </>
+            <SliderField
+              id="max_entity_tokens"
+              label={t('retrievePanel.querySettings.maxEntityTokens')}
+              tooltip={t('retrievePanel.querySettings.maxEntityTokensTooltip')}
+              value={querySettings.max_entity_tokens ?? ''}
+              onChange={(v) => handleChange('max_entity_tokens', v)}
+              min={numberRanges.max_entity_tokens.min}
+              max={numberRanges.max_entity_tokens.max}
+              step={numberRanges.max_entity_tokens.step}
+              defaultValue={defaultValues.max_entity_tokens}
+              resetTitle="Reset to default"
+            />
 
             {/* Max Relation Tokens */}
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="max_relation_tokens" className="ml-1 cursor-help">
-                      {t('retrievePanel.querySettings.maxRelationTokens')}
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>{t('retrievePanel.querySettings.maxRelationTokensTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Input
-                  id="max_relation_tokens"
-                  type="number"
-                  value={querySettings.max_relation_tokens ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    handleChange('max_relation_tokens', value === '' ? '' : parseInt(value) || 0)
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value
-                    if (value === '' || isNaN(parseInt(value))) {
-                      handleChange('max_relation_tokens', 8000)
-                    }
-                  }}
-                  min={1}
-                  placeholder={t('retrievePanel.querySettings.maxRelationTokensPlaceholder')}
-                  className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
-                />
-                <ResetButton
-                  onClick={() => handleReset('max_relation_tokens')}
-                  title="Reset to default"
-                />
-              </div>
-            </>
+            <SliderField
+              id="max_relation_tokens"
+              label={t('retrievePanel.querySettings.maxRelationTokens')}
+              tooltip={t('retrievePanel.querySettings.maxRelationTokensTooltip')}
+              value={querySettings.max_relation_tokens ?? ''}
+              onChange={(v) => handleChange('max_relation_tokens', v)}
+              min={numberRanges.max_relation_tokens.min}
+              max={numberRanges.max_relation_tokens.max}
+              step={numberRanges.max_relation_tokens.step}
+              defaultValue={defaultValues.max_relation_tokens}
+              resetTitle="Reset to default"
+            />
 
             {/* Max Total Tokens */}
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <label htmlFor="max_total_tokens" className="ml-1 cursor-help">
-                      {t('retrievePanel.querySettings.maxTotalTokens')}
-                    </label>
-                  </TooltipTrigger>
-                  <TooltipContent side="left">
-                    <p>{t('retrievePanel.querySettings.maxTotalTokensTooltip')}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <div className="flex items-center gap-1">
-                <Input
-                  id="max_total_tokens"
-                  type="number"
-                  value={querySettings.max_total_tokens ?? ''}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    handleChange('max_total_tokens', value === '' ? '' : parseInt(value) || 0)
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value
-                    if (value === '' || isNaN(parseInt(value))) {
-                      handleChange('max_total_tokens', 30000)
-                    }
-                  }}
-                  min={1}
-                  placeholder={t('retrievePanel.querySettings.maxTotalTokensPlaceholder')}
-                  className="h-9 flex-1 pr-2 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]"
-                />
-                <ResetButton
-                  onClick={() => handleReset('max_total_tokens')}
-                  title="Reset to default"
-                />
-              </div>
-            </>
+            <SliderField
+              id="max_total_tokens"
+              label={t('retrievePanel.querySettings.maxTotalTokens')}
+              tooltip={t('retrievePanel.querySettings.maxTotalTokensTooltip')}
+              value={querySettings.max_total_tokens ?? ''}
+              onChange={(v) => handleChange('max_total_tokens', v)}
+              min={numberRanges.max_total_tokens.min}
+              max={numberRanges.max_total_tokens.max}
+              step={numberRanges.max_total_tokens.step}
+              defaultValue={defaultValues.max_total_tokens}
+              resetTitle="Reset to default"
+            />
 
             {/* Toggle Options */}
             <>
